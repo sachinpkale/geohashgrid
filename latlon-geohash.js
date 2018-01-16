@@ -13,8 +13,8 @@
  */
 var Geohash = {};
 
-/* (Geohash-specific) Base32 map */
-Geohash.base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+/* (Geohash-specific) Base16 map */
+Geohash.base16 = '0123456789abcdef';
 
 /**
  * Encodes latitude/longitude to geohash, either to specified precision or to automatically
@@ -52,8 +52,8 @@ Geohash.encode = function(lat, lon, precision) {
     var evenBit = true;
     var geohash = '';
 
-    var latMin =  -90, latMax =  90;
-    var lonMin = -180, lonMax = 180;
+    var latMin =  6, latMax =  36;
+    var lonMin = 68, lonMax = 98;
 
     while (geohash.length < precision) {
         if (evenBit) {
@@ -79,9 +79,9 @@ Geohash.encode = function(lat, lon, precision) {
         }
         evenBit = !evenBit;
 
-        if (++bit == 5) {
+        if (++bit == 4) {
             // 5 bits gives us a character: append it and start over
-            geohash += Geohash.base32.charAt(idx);
+            geohash += Geohash.base16.charAt(idx);
             bit = 0;
             idx = 0;
         }
@@ -135,15 +135,15 @@ Geohash.bounds = function(geohash) {
     geohash = geohash.toLowerCase();
 
     var evenBit = true;
-    var latMin =  -90, latMax =  90;
-    var lonMin = -180, lonMax = 180;
+    var latMin =  6, latMax =  36;
+    var lonMin = 68, lonMax = 98;
 
     for (var i=0; i<geohash.length; i++) {
         var chr = geohash.charAt(i);
-        var idx = Geohash.base32.indexOf(chr);
+        var idx = Geohash.base16.indexOf(chr);
         if (idx == -1) throw new Error('Invalid geohash');
 
-        for (var n=4; n>=0; n--) {
+        for (var n=3; n>=0; n--) {
             var bitN = idx >> n & 1;
             if (evenBit) {
                 // longitude
@@ -192,33 +192,43 @@ Geohash.adjacent = function(geohash, direction) {
     if (geohash.length === 0) throw new Error('Invalid geohash');
     if ('nsew'.indexOf(direction) == -1) throw new Error('Invalid direction');
 
-    var neighbour = {
-        n: [ 'p0r21436x8zb9dcf5h7kjnmqesgutwvy', 'bc01fg45238967deuvhjyznpkmstqrwx' ],
-        s: [ '14365h7k9dcfesgujnmqp0r2twvyx8zb', '238967debc01fg45kmstqrwxuvhjyznp' ],
-        e: [ 'bc01fg45238967deuvhjyznpkmstqrwx', 'p0r21436x8zb9dcf5h7kjnmqesgutwvy' ],
-        w: [ '238967debc01fg45kmstqrwxuvhjyznp', '14365h7k9dcfesgujnmqp0r2twvyx8zb' ]
-    };
-    var border = {
-        n: [ 'prxz',     'bcfguvyz' ],
-        s: [ '028b',     '0145hjnp' ],
-        e: [ 'bcfguvyz', 'prxz'     ],
-        w: [ '0145hjnp', '028b'     ]
-    };
+    let lat_lng = Geohash.decode(geohash)
+    let lat = lat_lng["lat"]
+    let lng = lat_lng["lon"]
 
-    var lastCh = geohash.slice(-1);    // last character of hash
-    var parent = geohash.slice(0, -1); // hash without last character
+    let current = geohash
 
-    var type = geohash.length % 2;
-
-    // check for edge-cases which don't share common prefix
-    if (border[direction][type].indexOf(lastCh) != -1 && parent !== '') {
-        parent = Geohash.adjacent(parent, direction);
+    switch(direction) {
+        case "n":
+            while(current == geohash) {
+                lat = lat + 0.0001
+                current = Geohash.encode(lat, lng, geohash.length)
+            }
+            return current
+            break
+        case "s":
+            while(current == geohash) {
+                lat = lat - 0.0001
+                current = Geohash.encode(lat, lng, geohash.length)
+            }
+            return current
+            break
+        case "e":
+            while(current == geohash) {
+                lng = lng + 0.0001
+                current = Geohash.encode(lat, lng, geohash.length)
+            }
+            return current
+            break
+        case "w":
+            while(current == geohash) {
+                lng = lng - 0.0001
+                current = Geohash.encode(lat, lng, geohash.length)
+            }
+            return current
+            break
     }
-
-    // append letter for direction to parent
-    return parent + Geohash.base32.charAt(neighbour[direction][type].indexOf(lastCh));
 };
-
 
 /**
  * Returns all 8 adjacent cells to specified geohash.

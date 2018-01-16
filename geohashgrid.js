@@ -3,12 +3,11 @@
 var map, zoomSpan, extentsSpan,
 	gridParts = [],
 	defaults = {
-		zoom: 3,
+		zoom: 5,
 		maxDisplay: 10240,
-		geohashPrecision: 12,
+		geohashPrecision: 8,
 		geohashZoomScale: [
-		// 00, 01, 02, 03, 04, 05, 06, 07, 08, 09, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24
-			1,  1,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,  5,  5,  6,  6,  6,  7,  7,  7,  8,  8,  8,  9,  9,  9
+			1, 1, 1, 1, 1, 1, 2,  2,  3,  3,  4,  4,  5,  5,  6,  6,  7,  7,  8,  8, 9,  9, 10, 10, 11, 11, 12, 12, 13, 13
 		]
 	};
 
@@ -17,8 +16,8 @@ function initialize() {
 	extentsSpan = document.getElementById('extents');
 
 	map = new google.maps.Map(document.getElementById('map'), {
-		zoom: defaults.zoom,
-		center: new google.maps.LatLng(-27.593691984693564, -48.56170233339071),
+		zoom: 5,
+		center: new google.maps.LatLng(21, 83),
 		panControl: false,
 		streetViewControl: false
 	});
