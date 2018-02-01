@@ -16,6 +16,40 @@ var Geohash = {};
 /* (Geohash-specific) Base16 map */
 Geohash.base16 = '0123456789abcdef';
 
+Geohash.hexBinaryMap = {'0': '0000',
+                        '1': '0001',
+                        '2': '0010',
+                        '3': '0011',
+                        '4': '0100',
+                        '5': '0101',
+                        '6': '0110',
+                        '7': '0111',
+                        '8': '1000',
+                        '9': '1001',
+                        'a': '1010',
+                        'b': '1011',
+                        'c': '1100',
+                        'd': '1101',
+                        'e': '1110',
+                        'f': '1111'}
+
+Geohash.binaryHexMap = {'0000': '0',
+                        '0001': '1',
+                        '0010': '2',
+                        '0011': '3',
+                        '0100': '4',
+                        '0101': '5',
+                        '0110': '6',
+                        '0111': '7',
+                        '1000': '8',
+                        '1001': '9',
+                        '1010': 'a',
+                        '1011': 'b',
+                        '1100': 'c',
+                        '1101': 'd',
+                        '1110': 'e',
+                        '1111': 'f'}
+
 /**
  * Encodes latitude/longitude to geohash, either to specified precision or to automatically
  * evaluated precision.
@@ -33,9 +67,9 @@ Geohash.encode = function(lat, lon, precision) {
     // infer precision?
     if (typeof precision == 'undefined') {
         // refine geohash until it matches precision of supplied lat/lon
-        for (var p=1; p<=12; p++) {
-            var hash = Geohash.encode(lat, lon, p);
-            var posn = Geohash.decode(hash);
+        for (let p=1; p<=12; p++) {
+            let hash = Geohash.encode(lat, lon, p);
+            let posn = Geohash.decode(hash);
             if (posn.lat==lat && posn.lon==lon) return hash;
         }
         precision = 12; // set to maximum
@@ -47,18 +81,18 @@ Geohash.encode = function(lat, lon, precision) {
 
     if (isNaN(lat) || isNaN(lon) || isNaN(precision)) throw new Error('Invalid geohash');
 
-    var idx = 0; // index into base32 map
-    var bit = 0; // each char holds 5 bits
-    var evenBit = true;
-    var geohash = '';
+    let idx = 0; // index into base32 map
+    let bit = 0; // each char holds 5 bits
+    let evenBit = true;
+    let geohash = '';
 
-    var latMin =  6, latMax =  36;
-    var lonMin = 68, lonMax = 98;
+    let latMin =  6, latMax =  36;
+    let lonMin = 68, lonMax = 98;
 
     while (geohash.length < precision) {
         if (evenBit) {
             // bisect E-W longitude
-            var lonMid = (lonMin + lonMax) / 2;
+            let lonMid = (lonMin + lonMax) / 2;
             if (lon > lonMid) {
                 idx = idx*2 + 1;
                 lonMin = lonMid;
@@ -68,7 +102,7 @@ Geohash.encode = function(lat, lon, precision) {
             }
         } else {
             // bisect N-S latitude
-            var latMid = (latMin + latMax) / 2;
+            let latMid = (latMin + latMax) / 2;
             if (lat > latMid) {
                 idx = idx*2 + 1;
                 latMin = latMid;
@@ -104,15 +138,15 @@ Geohash.encode = function(lat, lon, precision) {
  */
 Geohash.decode = function(geohash) {
 
-    var bounds = Geohash.bounds(geohash); // <-- the hard work
+    let bounds = Geohash.bounds(geohash); // <-- the hard work
     // now just determine the centre of the cell...
 
-    var latMin = bounds.sw.lat, lonMin = bounds.sw.lon;
-    var latMax = bounds.ne.lat, lonMax = bounds.ne.lon;
+    let latMin = bounds.sw.lat, lonMin = bounds.sw.lon;
+    let latMax = bounds.ne.lat, lonMax = bounds.ne.lon;
 
     // cell centre
-    var lat = (latMin + latMax)/2;
-    var lon = (lonMin + lonMax)/2;
+    let lat = (latMin + latMax)/2;
+    let lon = (lonMin + lonMax)/2;
 
     // round to close to centre without excessive precision: ⌊2-log10(Δ°)⌋ decimal places
     lat = lat.toFixed(Math.floor(2-Math.log(latMax-latMin)/Math.LN10));
@@ -120,6 +154,54 @@ Geohash.decode = function(geohash) {
 
     return { lat: Number(lat), lon: Number(lon)};
 };
+
+Geohash.binaryToHex = function(binaryString) {
+    let s = ""
+    for (let i = 0; i < binaryString.length; i = i+4) {
+        let r = binaryString.substr(i, 4)
+        s += Geohash.binaryHexMap[r]
+    }
+    return s
+}
+
+Geohash.hexToBinary = function(hexString) {
+    let s = ""
+    for (let i = 0; i < hexString.length; i++) {
+        s += Geohash.hexBinaryMap[hexString.charAt(i)]
+    }
+    return s
+}
+
+Geohash.adjacent = function(geohash, direction) {
+    let value = Geohash.hexToBinary(geohash)
+    let lats = "";
+    let lngs = "";
+    for(let i = 0; i < value.length; i++) {
+        if(i%2 == 0) {
+            lngs += value.charAt(i);
+        } else {
+            lats += value.charAt(i);
+        }
+    }
+    let lngNum = parseInt(lngs, 2);
+    let latNum = parseInt(lats, 2);
+    let leftLng = (lngNum - 1).toString(2);
+    let rightLng = (lngNum + 1).toString(2);
+    let upLat = (latNum + 1).toString(2);
+    let downLat = (latNum - 1).toString(2);
+
+    switch(direction) {
+        case "n":
+            return Geohash.binaryToHex(Geohash.interleave(lngs, upLat))
+        case "e":
+            return Geohash.binaryToHex(Geohash.interleave(rightLng, lats))
+        case "w":
+            return Geohash.binaryToHex(Geohash.interleave(leftLng, lats))
+        case "s":
+            return Geohash.binaryToHex(Geohash.interleave(lngs, downLat))
+    }
+}
+
 
 
 /**
@@ -134,20 +216,20 @@ Geohash.bounds = function(geohash) {
 
     geohash = geohash.toLowerCase();
 
-    var evenBit = true;
-    var latMin =  6, latMax =  36;
-    var lonMin = 68, lonMax = 98;
+    let evenBit = true;
+    let latMin =  6, latMax =  36;
+    let lonMin = 68, lonMax = 98;
 
-    for (var i=0; i<geohash.length; i++) {
-        var chr = geohash.charAt(i);
-        var idx = Geohash.base16.indexOf(chr);
+    for (let i=0; i<geohash.length; i++) {
+        let chr = geohash.charAt(i);
+        let idx = Geohash.base16.indexOf(chr);
         if (idx == -1) throw new Error('Invalid geohash');
 
-        for (var n=3; n>=0; n--) {
-            var bitN = idx >> n & 1;
+        for (let n=3; n>=0; n--) {
+            let bitN = idx >> n & 1;
             if (evenBit) {
                 // longitude
-                var lonMid = (lonMin+lonMax) / 2;
+                let lonMid = (lonMin+lonMax) / 2;
                 if (bitN == 1) {
                     lonMin = lonMid;
                 } else {
@@ -155,7 +237,7 @@ Geohash.bounds = function(geohash) {
                 }
             } else {
                 // latitude
-                var latMid = (latMin+latMax) / 2;
+                let latMid = (latMin+latMax) / 2;
                 if (bitN == 1) {
                     latMin = latMid;
                 } else {
@@ -166,7 +248,7 @@ Geohash.bounds = function(geohash) {
         }
     }
 
-    var bounds = {
+    let bounds = {
         sw: { lat: latMin, lon: lonMin },
         ne: { lat: latMax, lon: lonMax }
     };
@@ -175,60 +257,28 @@ Geohash.bounds = function(geohash) {
 };
 
 
-/**
- * Determines adjacent cell in given direction.
- *
- * @param   geohash - Cell to which adjacent cell is required.
- * @param   direction - Direction from geohash (N/S/E/W).
- * @returns {string} Geocode of adjacent cell.
- * @throws  Invalid geohash.
- */
-Geohash.adjacent = function(geohash, direction) {
-    // based on github.com/davetroy/geohash-js
-
-    geohash = geohash.toLowerCase();
-    direction = direction.toLowerCase();
-
-    if (geohash.length === 0) throw new Error('Invalid geohash');
-    if ('nsew'.indexOf(direction) == -1) throw new Error('Invalid direction');
-
-    let lat_lng = Geohash.decode(geohash)
-    let lat = lat_lng["lat"]
-    let lng = lat_lng["lon"]
-
-    let current = geohash
-
-    switch(direction) {
-        case "n":
-            while(current == geohash) {
-                lat = lat + 0.0001
-                current = Geohash.encode(lat, lng, geohash.length)
-            }
-            return current
-            break
-        case "s":
-            while(current == geohash) {
-                lat = lat - 0.0001
-                current = Geohash.encode(lat, lng, geohash.length)
-            }
-            return current
-            break
-        case "e":
-            while(current == geohash) {
-                lng = lng + 0.0001
-                current = Geohash.encode(lat, lng, geohash.length)
-            }
-            return current
-            break
-        case "w":
-            while(current == geohash) {
-                lng = lng - 0.0001
-                current = Geohash.encode(lat, lng, geohash.length)
-            }
-            return current
-            break
+Geohash.leftpad = function(s, num) {
+    let r = "";
+    for(let i = 0; i < num; i++) {
+        r += "0";
     }
-};
+    return r + s;
+}
+
+Geohash.interleave = function(lngs, lats) {
+    if(lngs.length < lats.length) {
+        lngs = Geohash.leftpad(lngs, lats.length - lngs.length);
+    }
+    if(lats.length < lngs.length) {
+        lats = Geohash.leftpad(lats, lngs.length - lats.length);
+    }
+    let s = "";
+    for(let i = 0; i < lngs.length; i++) {
+        s += lngs.charAt(i);
+        s += lats.charAt(i);
+    }
+    return s;
+}
 
 /**
  * Returns all 8 adjacent cells to specified geohash.
